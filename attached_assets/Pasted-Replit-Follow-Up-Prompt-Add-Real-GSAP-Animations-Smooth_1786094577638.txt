@@ -1,0 +1,40 @@
+Replit Follow-Up Prompt — Add Real GSAP Animations + Smooth Scroll + Better Images
+
+Copy everything below into Replit as your next prompt (same project, same chat thread as before).
+
+The site currently has no GSAP and no smooth scroll — it's rendering as a static page. Fix that, and also swap out the current images for higher-quality ones. Do the following:
+
+1. Install and wire up the animation stack properly
+Install gsap, @gsap/react (or wire GSAP manually with useEffect + useRef if not using the React plugin), and lenis (formerly @studio-freight/lenis) via npm — actually run the install, don't just import them assuming they exist.
+Create a single SmoothScroll wrapper component that initializes Lenis on mount, and syncs it to GSAP's ticker like this pattern:
+lenis.on('scroll', ScrollTrigger.update)
+drive Lenis's raf from gsap.ticker.add() instead of requestAnimationFrame directly, and set gsap.ticker.lagSmoothing(0).
+Wrap the whole app in this component so every section scrolls through Lenis, not native scroll.
+Register ScrollTrigger with gsap.registerPlugin(ScrollTrigger) once, at the top of the app (not per-component), to avoid duplicate registration.
+After building this, actually test/verify in the preview that scrolling feels smooth/eased (not default browser scroll) before moving on.
+2. Animations to implement per section (be specific, don't skip any)
+Hero: on page load, animate the headline in with a stagger — split it into lines or words and fade+rise each one in (y: 40 → 0, opacity: 0 → 1, stagger: 0.08, ease: power3.out). Background image should have a slow parallax (yPercent shift tied to scroll via ScrollTrigger with scrub: true).
+Section headings (About, Services, Gallery, Reviews, Contact): each heading reveals with a clip-path or mask wipe (not just opacity) as it enters the viewport — trigger at start: "top 80%".
+About section: pin this section for a short scroll distance (pin: true, scrub: true) while the paragraph text builds in line by line.
+Service cards (both featured tiles and full menu list): stagger fade+rise-in (y: 30 → 0, opacity, stagger: 0.1) triggered when the row/grid enters the viewport — use one ScrollTrigger per group, not one per card, so they fire together as a set.
+Accordion expand/collapse (full services menu): animate max-height/opacity with GSAP (not just a CSS transition) so open/close feels consistent with the rest of the motion language — ease power2.inOut, ~0.4s.
+Gallery: if horizontal-scroll style, drive the horizontal movement with a pinned ScrollTrigger (scrub: true) so vertical scroll translates to horizontal image movement; if masonry style, do the same scale+fade-in-on-enter as the service cards.
+Reviews carousel: auto-advance with GSAP timeline (not a UI library carousel) so easing matches the rest of the site.
+Nav bar: background/blur fades in via ScrollTrigger once the user scrolls past ~90% of the hero height; active-section link gets a gold underline that animates width in/out with GSAP as sections change (use ScrollTrigger's onEnter/onLeaveBack to toggle active state).
+Booking modal: open/close with a GSAP scale+fade timeline instead of a default CSS modal transition.
+
+All durations should stay in the 0.5–1s range, eased with power2 or power3 — nothing bouncy/elastic. Wrap all ScrollTrigger animations in a check for window.matchMedia('(prefers-reduced-motion: reduce)') and skip/simplify motion for those users.
+
+3. Fix image quality
+
+The current images are low-res/stretched/generic. Replace them with sharper, higher-resolution images that match the moody charcoal-and-cream editorial reference I gave earlier (Pinterest salon site screenshots — dark backgrounds, warm skin/hair tones, elegant close-up crops). Concretely:
+
+Pull images at proper resolution — use Unsplash source URLs at ?w=1600&q=80 or higher (never below ~1200px wide for full-bleed hero/section images), and ?w=800&q=80 for card-sized images. Don't stretch small images to fill large containers.
+Re-select the actual images for each section so they match the mood — search terms to use when picking replacements: "hair colour close up dark background," "blowout hair texture editorial," "salon interior moody," "keratin treatment hair," "hair extensions detail shot," "hands styling hair black and white." Still no faces.
+Make sure every image container uses object-fit: cover with a fixed aspect ratio so nothing looks squashed, and add a subtle dark gradient overlay on full-bleed images so text stays legible on top of them (matching the reference's hero treatment).
+Lazy-load all below-the-fold images and add a simple blur-up or fade-in-on-load so images don't pop in jarringly.
+4. Before finishing
+Scroll through the entire page in preview and confirm: Lenis smooth scroll is active site-wide, every section listed above actually animates on scroll (not just on load), the nav underline/background react correctly, and no image looks pixelated, stretched, or placeholder-quality.
+Fix any console errors from GSAP/ScrollTrigger before calling it done.
+
+Goal: the site should now feel like an actual motion-designed site — smooth inertial scroll, considered reveal timing per section, and sharp, well-cropped imagery — not a static page with plain images.

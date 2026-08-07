@@ -1,1 +1,2 @@
 - [Face-free visual direction](image-selection.md) — verify salon imagery visually and keep recognizable faces out of hero/gallery assets.
+- [Salon motion stack](motion-stack.md) — use Lenis plus GSAP ScrollTrigger as the source of truth for premium site motion.

@@ -1,21 +1,30 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { Menu, X, ArrowUpRight, ChevronDown, Instagram, Phone, MapPin, Clock } from 'lucide-react';
+import gsap from 'gsap';
+import { ScrollTrigger } from 'gsap/ScrollTrigger';
+import Lenis from 'lenis';
 import './index.css';
+
+gsap.registerPlugin(ScrollTrigger);
 
 type Service = { name: string; description: string; price: string; duration: string };
 type Group = { name: string; items: Service[] };
 
+const reducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const unsplash = (id: string, width: number) => `https://images.unsplash.com/photo-${id}?auto=format&fit=crop&w=${width}&q=85`;
+const markLoaded = (event: React.SyntheticEvent<HTMLImageElement>) => event.currentTarget.classList.add('is-loaded');
+
 const images = {
-  hero: 'https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?auto=format&fit=crop&w=1800&q=85',
-  colour: 'https://images.pexels.com/photos/3992870/pexels-photo-3992870.jpeg?auto=compress&cs=tinysrgb&w=900',
-  cut: 'https://images.pexels.com/photos/3993301/pexels-photo-3993301.jpeg?auto=compress&cs=tinysrgb&w=900',
-  extensions: 'https://images.pexels.com/photos/3993448/pexels-photo-3993448.jpeg?auto=compress&cs=tinysrgb&w=900',
-  keratin: 'https://images.pexels.com/photos/3993464/pexels-photo-3993464.jpeg?auto=compress&cs=tinysrgb&w=900',
-  detail: 'https://images.pexels.com/photos/3993300/pexels-photo-3993300.jpeg?auto=compress&cs=tinysrgb&w=1000',
-  tools: 'https://images.pexels.com/photos/8534277/pexels-photo-8534277.jpeg?auto=compress&cs=tinysrgb&w=1000',
-  interior: 'https://images.pexels.com/photos/3992874/pexels-photo-3992874.jpeg?auto=compress&cs=tinysrgb&w=1000',
-  product: 'https://images.pexels.com/photos/3738349/pexels-photo-3738349.jpeg?auto=compress&cs=tinysrgb&w=1000',
-  mirror: 'https://images.pexels.com/photos/3992875/pexels-photo-3992875.jpeg?auto=compress&cs=tinysrgb&w=1000',
+  hero: unsplash('1522337360788-8b13dee7a37e', 1800),
+  colour: unsplash('1487412912498-0447578fcca8', 1200),
+  cut: unsplash('1595476108010-b4d1f102b1b1', 1200),
+  extensions: unsplash('1516975080664-ed2fc6a32937', 1200),
+  keratin: unsplash('1600948836101-f9ffda59d250', 1200),
+  detail: unsplash('1534297635766-a262cdcb8ee4', 1400),
+  tools: unsplash('1559599101-f09722fb4948', 1400),
+  interior: unsplash('1560066984-138dadb4c035', 1400),
+  product: unsplash('1556228720-195a672e8a03', 1400),
+  mirror: unsplash('1562322140-8baeececf3df', 1400),
 };
 
 const groups: Group[] = [
@@ -65,18 +74,55 @@ function scrollTo(id: string) {
   document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
+function SmoothScroll({ children }: { children: ReactNode }) {
+  useEffect(() => {
+    if (reducedMotion()) return;
+    const lenis = new Lenis({ autoRaf: false, lerp: 0.08, smoothWheel: true });
+    lenis.on('scroll', ScrollTrigger.update);
+    const tick = (time: number) => lenis.raf(time * 1000);
+    gsap.ticker.add(tick);
+    gsap.ticker.lagSmoothing(0);
+    return () => {
+      gsap.ticker.remove(tick);
+      lenis.destroy();
+      gsap.ticker.lagSmoothing(500, 33);
+    };
+  }, []);
+  return <>{children}</>;
+}
+
 function BookingModal({ service, onClose }: { service: string; onClose: () => void }) {
   const [submitted, setSubmitted] = useState(false);
+  const [closing, setClosing] = useState(false);
+  const modalRef = useRef<HTMLDivElement>(null);
+  const backdropRef = useRef<HTMLDivElement>(null);
+  const closeModal = () => {
+    if (closing) return;
+    if (reducedMotion()) {
+      onClose();
+      return;
+    }
+    setClosing(true);
+    gsap.timeline({ onComplete: onClose })
+      .to(modalRef.current, { autoAlpha: 0, y: 18, scale: 0.98, duration: 0.45, ease: 'power2.in' }, 0)
+      .to(backdropRef.current, { autoAlpha: 0, duration: 0.5, ease: 'power2.in' }, 0.06);
+  };
+  useLayoutEffect(() => {
+    if (reducedMotion()) return;
+    gsap.timeline()
+      .fromTo(backdropRef.current, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.4, ease: 'power2.out' })
+      .fromTo(modalRef.current, { autoAlpha: 0, y: 24, scale: 0.96 }, { autoAlpha: 1, y: 0, scale: 1, duration: 0.65, ease: 'power3.out' }, '-=0.18');
+  }, []);
   useEffect(() => {
-    const handler = (event: KeyboardEvent) => event.key === 'Escape' && onClose();
+    const handler = (event: KeyboardEvent) => event.key === 'Escape' && closeModal();
     document.addEventListener('keydown', handler);
     document.body.style.overflow = 'hidden';
     return () => { document.removeEventListener('keydown', handler); document.body.style.overflow = ''; };
   }, [onClose]);
   return (
-    <div className="modal-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
-      <div className="booking-modal" role="dialog" aria-modal="true" aria-label="Book an appointment">
-        <button className="modal-close" onClick={onClose} aria-label="Close booking form"><X size={17} /></button>
+    <div ref={backdropRef} className={`modal-backdrop ${closing ? 'is-closing' : ''}`} role="presentation" onMouseDown={(event) => event.target === event.currentTarget && closeModal()}>
+      <div ref={modalRef} className="booking-modal" role="dialog" aria-modal="true" aria-label="Book an appointment">
+        <button className="modal-close" onClick={closeModal} aria-label="Close booking form"><X size={17} /></button>
         {!submitted ? <>
           <span className="eyebrow">A private appointment</span>
           <h2 className="serif">Make it yours.</h2>
@@ -98,7 +144,7 @@ function BookingModal({ service, onClose }: { service: string; onClose: () => vo
           <div className="confirm-mark"><span>✓</span></div>
           <h2 className="serif">Thank you — we'll confirm your appointment shortly</h2>
           <p>We look forward to welcoming you at The Hair Direction.</p>
-          <button className="button text" onClick={onClose}>Close</button>
+           <button className="button text" onClick={closeModal}>Close</button>
         </div>}
       </div>
     </div>
@@ -108,11 +154,38 @@ function BookingModal({ service, onClose }: { service: string; onClose: () => vo
 function Nav({ onBook }: { onBook: () => void }) {
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
-  useEffect(() => { const onScroll = () => setScrolled(window.scrollY > 30); window.addEventListener('scroll', onScroll, { passive: true }); return () => window.removeEventListener('scroll', onScroll); }, []);
+  const [active, setActive] = useState('home');
+  const navRef = useRef<HTMLElement>(null);
   const links = [['Home', 'home'], ['Services', 'services'], ['Gallery', 'gallery'], ['About', 'about'], ['Reviews', 'reviews'], ['Contact', 'contact']];
-  return <nav className={`nav ${scrolled ? 'scrolled' : ''}`}>
+  useLayoutEffect(() => {
+    if (reducedMotion()) return;
+    const triggers = links.map(([, id]) => ScrollTrigger.create({
+      trigger: `#${id}`,
+      start: id === 'home' ? 'top top' : 'top 45%',
+      end: id === 'home' ? 'bottom 45%' : 'bottom 45%',
+      onEnter: () => setActive(id),
+      onEnterBack: () => setActive(id),
+    }));
+    return () => triggers.forEach((trigger) => trigger.kill());
+  }, []);
+  useLayoutEffect(() => {
+    const trigger = ScrollTrigger.create({
+      trigger: '#home',
+      start: 'top top',
+      end: '90% top',
+      onEnter: () => setScrolled(true),
+      onLeaveBack: () => setScrolled(false),
+    });
+    return () => trigger.kill();
+  }, []);
+  useEffect(() => {
+    const activeLink = navRef.current?.querySelector(`.nav-link[data-section="${active}"]`);
+    if (!activeLink || reducedMotion()) return;
+    gsap.fromTo(activeLink.querySelector('.nav-underline'), { scaleX: 0 }, { scaleX: 1, duration: 0.55, ease: 'power3.out', overwrite: true });
+  }, [active]);
+  return <nav ref={navRef} className={`nav ${scrolled ? 'scrolled' : ''}`}>
     <a className="wordmark" href="#home" onClick={() => setOpen(false)}><span className="wordmark-mark" />THE HAIR DIRECTION</a>
-    <div className={`nav-links ${open ? 'open' : ''}`}>{links.map(([label, id]) => <a className="nav-link" href={`#${id}`} key={id} onClick={() => setOpen(false)}>{label}</a>)}</div>
+     <div className={`nav-links ${open ? 'open' : ''}`}>{links.map(([label, id]) => <a className={`nav-link ${active === id ? 'active' : ''}`} data-section={id} href={`#${id}`} key={id} onClick={() => { setOpen(false); setActive(id); }}>{label}<span className="nav-underline" /></a>)}</div>
     <button className="button nav-book" onClick={onBook}>Book now <ArrowUpRight size={13} /></button>
     <button className="menu-toggle" onClick={() => setOpen(!open)} aria-label="Toggle navigation">{open ? <X /> : <Menu />}</button>
   </nav>;
@@ -122,15 +195,100 @@ function App() {
   const [booking, setBooking] = useState<string | null>(null);
   const [activeGroup, setActiveGroup] = useState(0);
   const [reviewIndex, setReviewIndex] = useState(0);
-  useEffect(() => { const timer = window.setInterval(() => setReviewIndex((index) => (index + 1) % reviews.length), 6500); return () => window.clearInterval(timer); }, []);
-  return <div className="site-shell">
+  const siteRef = useRef<HTMLDivElement>(null);
+
+  useLayoutEffect(() => {
+    if (reducedMotion()) return;
+    const context = gsap.context(() => {
+      const heroTimeline = gsap.timeline({ defaults: { ease: 'power3.out' } });
+      heroTimeline
+        .from('.hero-kicker', { autoAlpha: 0, y: 20, duration: 0.6 })
+        .from('.hero-line', { autoAlpha: 0, y: 40, duration: 0.85, stagger: 0.08 }, '-=0.25')
+        .from('.hero-copy, .hero-actions', { autoAlpha: 0, y: 24, duration: 0.65, stagger: 0.1 }, '-=0.35');
+
+      gsap.to('.hero-media img', {
+        yPercent: 12,
+        ease: 'none',
+        scrollTrigger: { trigger: '.hero', start: 'top top', end: 'bottom top', scrub: true },
+      });
+
+      gsap.utils.toArray<HTMLElement>('.intro-title, .section-heading h2, .gallery-intro h2, .contact-title').forEach((heading) => {
+        gsap.fromTo(heading, { clipPath: 'inset(0 0 100% 0)', y: 18 }, {
+          clipPath: 'inset(0 0 0% 0)', y: 0, duration: 0.8, ease: 'power3.out',
+          scrollTrigger: { trigger: heading, start: 'top 80%', once: true },
+        });
+      });
+
+      gsap.fromTo('.about-line', { autoAlpha: 0, y: 22 }, {
+        autoAlpha: 1, y: 0, duration: 0.7, stagger: 0.13, ease: 'power3.out',
+        scrollTrigger: { trigger: '.intro-copy', start: 'top 78%', once: true },
+      });
+
+      if (window.innerWidth > 860) {
+        ScrollTrigger.create({
+          trigger: '.intro',
+          start: 'top top',
+          end: '+=440',
+          pin: '.intro-grid',
+          scrub: true,
+          pinSpacing: true,
+        });
+      }
+
+      gsap.from('.feature-card', {
+        autoAlpha: 0, y: 30, scale: 0.98, duration: 0.8, stagger: 0.1, ease: 'power3.out',
+        scrollTrigger: { trigger: '.featured-grid', start: 'top 78%', once: true },
+      });
+
+      gsap.from('.service-group', {
+        autoAlpha: 0, y: 30, duration: 0.7, stagger: 0.1, ease: 'power3.out',
+        scrollTrigger: { trigger: '.service-menu', start: 'top 82%', once: true },
+      });
+
+      gsap.from('.gallery-cell', {
+        autoAlpha: 0, y: 30, scale: 0.98, duration: 0.8, stagger: 0.1, ease: 'power3.out',
+        scrollTrigger: { trigger: '.gallery-grid', start: 'top 82%', once: true },
+      });
+
+      gsap.from('.contact-item, .map-card', {
+        autoAlpha: 0, y: 24, duration: 0.7, stagger: 0.1, ease: 'power3.out',
+        scrollTrigger: { trigger: '.contact-grid', start: 'top 80%', once: true },
+      });
+
+      const reviewTimeline = gsap.timeline({ repeat: -1, repeatDelay: 3 });
+      reviewTimeline
+        .to('.review-card', { autoAlpha: 0, y: -10, duration: 0.45, ease: 'power2.in' })
+        .call(() => setReviewIndex((index) => (index + 1) % reviews.length))
+        .fromTo('.review-card', { autoAlpha: 0, y: 15 }, { autoAlpha: 1, y: 0, duration: 0.65, ease: 'power3.out' });
+    }, siteRef);
+    return () => context.revert();
+  }, []);
+
+  useLayoutEffect(() => {
+    if (reducedMotion()) return;
+    const items = siteRef.current?.querySelectorAll<HTMLElement>('.service-items');
+    if (!items) return;
+    items.forEach((item, index) => {
+      gsap.killTweensOf(item);
+      const isOpen = index === activeGroup;
+      gsap.to(item, {
+        height: isOpen ? item.scrollHeight : 0,
+        autoAlpha: isOpen ? 1 : 0,
+        duration: 0.45,
+        ease: 'power2.inOut',
+        overwrite: true,
+      });
+    });
+  }, [activeGroup]);
+
+  return <SmoothScroll><div ref={siteRef} className="site-shell">
     <Nav onBook={() => setBooking('')} />
     <main>
       <section className="hero" id="home">
-        <div className="hero-media"><img src={images.hero} alt="Close crop of glossy waves in a salon light" /></div>
+         <div className="hero-media"><img src={images.hero} onLoad={markLoaded} alt="Back view of long, glossy waves with hands in the hair" /></div>
         <div className="hero-content reveal">
           <div className="hero-kicker eyebrow">An atelier for hair · Kamla Nagar, Delhi</div>
-          <h1 className="serif">Experience<br />the <em>Art</em> of Hair</h1>
+           <h1 className="serif"><span className="hero-line">Experience</span><span className="hero-line">the <em>Art</em> of Hair</span></h1>
           <p className="hero-copy">A considered salon experience for hair that feels like you — only more so. Come in for the craft, stay for the feeling.</p>
           <div className="hero-actions"><button className="button" onClick={() => setBooking('')}>Book your visit <ArrowUpRight size={14} /></button><a className="button ghost" href="#services">Explore services</a></div>
         </div>
@@ -138,14 +296,14 @@ function App() {
       </section>
 
       <section className="section intro" id="about"><div className="section-inner intro-grid">
-        <div><span className="eyebrow">01 / The Direction</span><h2 className="intro-title serif">Good hair<br /><em>has a point<br />of view.</em></h2></div>
-        <p className="intro-copy">The Hair Direction is a salon in the heart of Kamla Nagar, Delhi, where <em>technical expertise</em> meets a distinctly personal approach. We believe your hair should not just look beautiful in the chair — it should live beautifully, too.</p>
+         <div><span className="eyebrow">01 / The Direction</span><h2 className="intro-title serif">Good hair<br /><em>has a point<br />of view.</em></h2></div>
+         <p className="intro-copy"><span className="about-line">The Hair Direction is a salon in the heart of Kamla Nagar, Delhi, where <em>technical expertise</em></span> <span className="about-line">meets a distinctly personal approach. We believe your hair should not just look beautiful</span> <span className="about-line">in the chair — it should live beautifully, too.</span></p>
         <div className="intro-aside"><strong className="serif">Since<br />2014</strong>We work with texture, tone and proportion to create hair that belongs to the person wearing it. No templates. No rush.</div>
       </div></section>
 
       <section className="section dark-section" id="services"><div className="section-inner">
         <div className="section-heading"><div><span className="eyebrow">02 / The edit</span><h2 className="serif">The signatures.</h2></div><p>Our most requested rituals, shaped by the way Delhi lives and the hair it brings with it.</p></div>
-        <div className="featured-grid">{featured.map((item) => <article className="feature-card" key={item.title}><img src={item.image} loading="lazy" alt="" /><span className="feature-number">{item.number}</span><div className="feature-info"><h3 className="serif">{item.title}</h3><p>{item.copy}</p><div className="feature-bottom"><span className="price">{item.price}</span><button className="mini-book" onClick={() => setBooking(item.title)}>Book this</button></div></div></article>)}</div>
+         <div className="featured-grid">{featured.map((item) => <article className="feature-card" key={item.title}><img src={item.image} onLoad={markLoaded} loading="lazy" alt="" /><span className="feature-number">{item.number}</span><div className="feature-info"><h3 className="serif">{item.title}</h3><p>{item.copy}</p><div className="feature-bottom"><span className="price">{item.price}</span><button className="mini-book" onClick={() => setBooking(item.title)}>Book this</button></div></div></article>)}</div>
       </div></section>
 
       <section className="section services-section"><div className="section-inner">
@@ -155,11 +313,11 @@ function App() {
 
       <section className="section gallery-section" id="gallery"><div className="section-inner">
         <div className="gallery-intro"><div><span className="eyebrow">04 / In the studio</span><h2 className="serif">Details<br />matter.</h2></div><p>Light on the mirror. The sound of scissors. A warm towel, a good conversation, an unhurried finish. The small things are the whole thing.</p></div>
-        <div className="gallery-grid">
-          <div className="gallery-cell"><img src={images.detail} loading="lazy" alt="Close detail of textured hair" /><span className="gallery-caption">Texture / light</span></div>
-          <div className="gallery-cell"><img src={images.interior} loading="lazy" alt="Warm salon interior detail" /><span className="gallery-caption">The studio</span></div>
-          <div className="gallery-cell"><img src={images.tools} loading="lazy" alt="Salon tools arranged on a work surface" /><span className="gallery-caption">The craft</span></div>
-          <div className="gallery-cell"><img src={images.product} loading="lazy" alt="Haircare product flatlay" /><span className="gallery-caption">The ritual</span></div>
+         <div className="gallery-grid">
+           <div className="gallery-cell"><img src={images.detail} onLoad={markLoaded} loading="lazy" alt="Close detail of textured hair" /><span className="gallery-caption">Texture / light</span></div>
+           <div className="gallery-cell"><img src={images.interior} onLoad={markLoaded} loading="lazy" alt="Warm salon interior detail" /><span className="gallery-caption">The studio</span></div>
+           <div className="gallery-cell"><img src={images.tools} onLoad={markLoaded} loading="lazy" alt="Salon tools arranged on a work surface" /><span className="gallery-caption">The craft</span></div>
+           <div className="gallery-cell"><img src={images.product} onLoad={markLoaded} loading="lazy" alt="Haircare product flatlay" /><span className="gallery-caption">The ritual</span></div>
         </div>
       </div></section>
 
@@ -176,7 +334,7 @@ function App() {
     </main>
     <footer><div className="footer-top"><div><div className="wordmark footer-wordmark"><span className="wordmark-mark" />THE HAIR DIRECTION</div><p className="footer-tagline">A little more direction for your hair.</p></div><div><h3 className="footer-heading">Navigate</h3><div className="footer-links">{[['Home','home'],['Services','services'],['Gallery','gallery'],['About','about'],['Reviews','reviews'],['Contact','contact']].map(([label,id]) => <a href={`#${id}`} key={id}>{label}</a>)}</div></div><div><h3 className="footer-heading">Find us online</h3><div className="footer-links"><a href="https://instagram.com/thehairdirectionsalon" target="_blank" rel="noreferrer"><Instagram size={13} /> @thehairdirectionsalon</a><a href="tel:07503135104">075031 35104</a><span>44UB, Chattori Lane<br />Kamla Nagar, Delhi 110007</span></div></div></div><div className="footer-bottom"><span>© {new Date().getFullYear()} The Hair Direction Salon</span><span>Designed for The Hair Direction Salon</span></div></footer>
     {booking !== null && <BookingModal service={booking} onClose={() => setBooking(null)} />}
-  </div>;
+  </div></SmoothScroll>;
 }
 
 export default App;
