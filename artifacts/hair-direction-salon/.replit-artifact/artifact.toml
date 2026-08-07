@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "The Hair Direction Salon"
+description = "A moody, editorial single-page brand experience for The Hair Direction Salon in Kamla Nagar, Delhi, showcasing premium hair services, gallery imagery, reviews, contact details, and a polished front-end booking flow."
+version = "1.0.0"
+id = "artifacts/hair-direction-salon"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 19291
+
+[services.development]
+run = "pnpm --filter @workspace/hair-direction-salon run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/hair-direction-salon", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/hair-direction-salon/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "19291"
+BASE_PATH = "/"

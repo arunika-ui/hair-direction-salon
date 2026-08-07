@@ -1,0 +1,64 @@
+Replit Build Prompt — The Hair Direction Salon
+
+Copy everything below into Replit (Agent / Assistant) as one prompt.
+
+Build a single-page, scroll-driven website for a luxury hair salon called "The Hair Direction Salon," located in Kamla Nagar, Delhi. This is a portfolio/brand-pitch site — visuals, motion, and feel matter far more than functionality. Use React + Vite, Tailwind CSS, GSAP with ScrollTrigger, and Lenis for smooth scrolling.
+
+Brand & Art Direction
+Mood: moody, upscale, editorial — think high-end salon meets fashion magazine, not a generic local-business site.
+Color palette: deep charcoal/near-black (
+#141414–
+#1a1a1a) as the dominant background, warm cream/ivory (
+#f5f0e8) for light sections and text, one metallic gold/champagne accent (
+#c9a876 or similar) for dividers, buttons, and highlights.
+Typography: pair a tall, elegant serif/display font for headlines (Playfair Display, Canela, or similar editorial serif) with a clean, wide-tracked sans-serif for labels, nav, and body copy (e.g. Neue Montreal, Inter, or Helvetica Now) — set nav links and eyebrow labels in uppercase with generous letter-spacing, matching the "LUXURY HAIR, REFINED ELEGANCE" reference look.
+Layout language: full-bleed editorial image blocks, generous whitespace, asymmetric grids for service/gallery sections, thin gold hairline dividers, large oversized headline type that overlaps imagery slightly for a designed, art-directed feel.
+Images
+Do NOT use any images containing recognizable human faces (avoid copyright/likeness issues since this is a sample/pitch build).
+Use close-up, face-free imagery: hands running through hair, hair strands/texture/color detail shots, blowouts/curls from behind or cropped at the shoulders, salon interior/chair/mirror shots, product flatlays, tools (dryers, brushes, keratin bottles).
+Source placeholder imagery from Unsplash/Pexels (free-to-use) matching this description — style it to match the moody cream-and-charcoal reference.
+Structure — one long scrolling page, single nav
+Sticky nav — logo "THE HAIR DIRECTION" left, links (Home / Services / Gallery / About / Reviews / Contact), a gold "Book Now" pill button right. Nav background transparent over hero, solidifies on scroll.
+Hero — full-viewport, dark background image (hair/texture, no faces), large serif headline like "Experience the Art of Hair," a short subline, "Shop Popular Services" / "Book Now" CTA. GSAP: headline letters/lines fade-and-rise in on load, background has a slow parallax drift on scroll.
+About / Intro strip — short editorial paragraph: "Welcome to The Hair Direction Salon, one of Delhi's leading hair studios in Kamla Nagar — specializing in precision cuts, global colour, keratin smoothing, and premium hair extensions." Pin this section briefly with ScrollTrigger so text builds in as the user scrolls past.
+Popular Services (primary, image-led) — 3–4 featured services as large image cards (matching the reference's "Custom Color / Haircut & Styling / Extensions" tile layout):
+Global Colour & Balayage
+Haircut & Styling
+Hair Extensions
+Keratin & Smoothing (G.K Keratin) Each card: image, service name, short line, price-from tag, "Book" button. Cards should stagger-reveal on scroll with a slight scale/fade via GSAP.
+Full Services Menu — an elegant list/accordion (not a boring table) covering the full menu, grouped by category:
+Hair Cutting — Women's Haircut, Men's Haircut, Fringe/Trim
+Colour — Global Colour, Highlights, Balayage, Root Touch-up, Fashion Colours
+Smoothing & Treatments — G.K Keratin (₹2,500–₹6,000), Keratin Treatment, Hair Spa, Deep Conditioning, Anti-Dandruff Treatment
+Styling — Blow Dry, Ironing/Curling, Bridal & Party Styling
+Extensions — Clip-ins, Tape-ins, Fusion Extensions
+Texture — Perming, Straightening Each row expands on click to show duration + price + a short description; use GSAP for the expand/collapse easing.
+Gallery — a horizontally-scrolling or masonry strip of texture/detail shots (colour close-ups, styling tools, salon interior), parallax on scroll, no faces.
+Reviews / Social Proof — pull credibility from the salon's real standing: 4.7★ rating from 2,451+ Google reviews, plus Justdial 4.7/5. Show 2–3 short, paraphrased testimonial lines (in your own words, not exact quotes) such as praise for friendly, professional staff and great service quality. Style as large pull-quote cards with a subtle horizontal auto-scroll or fade-through carousel.
+Location / Hours / Contact — editorial split section:
+Address: 44UB, Chattori Lane, Block UB, Jawahar Nagar, Kamla Nagar, Delhi, 110007
+Phone: 075031 35104
+Hours: Open daily, closes 9 PM
+Instagram: @thehairdirectionsalon Include an embedded Google Map (dark-themed/styled to match the palette) and social icons.
+Footer — logo, nav links repeated, social icons (Instagram, Facebook, YouTube), address, and a closing gold hairline with "Designed for The Hair Direction Salon."
+Motion & Interaction (GSAP + ScrollTrigger + Lenis)
+Initialize Lenis for buttery smooth scrolling site-wide; sync Lenis with GSAP's ticker so ScrollTrigger stays accurate.
+Hero: staggered text reveal (mask/clip-path or y-offset fade) on load.
+Section headers: split-text or line-mask reveal triggered on enter.
+Images: subtle scale-in (from ~1.1 to 1) + fade as they enter viewport, plus slow continuous parallax (background moves slower than foreground) on relevant sections.
+Service/gallery cards: staggered fade+rise-in with a small delay between each card.
+Sticky/pinned moment for the About section so the copy feels art-directed, not just a scroll-by paragraph.
+Nav: background/blur transitions in on scroll past hero; active-link underline animates with a gold accent.
+Keep every animation subtle and premium — short durations (0.6–1s), eased with power2/power3, no bouncy or cartoonish easing.
+Respect prefers-reduced-motion and disable/simplify heavy motion for users who have it set.
+"Booking" functionality (front-end only, no backend needed)
+Every "Book Now" / "Book" button opens a clean modal (not a new page) with a simple form: Name, Phone, Service (pre-filled if launched from a specific service card), Preferred Date/Time, Notes.
+On submit, just show a styled confirmation state ("Thank you — we'll confirm your appointment shortly") — no real backend, database, or payment needed. This is a visual/UX placeholder for the real booking system to be wired in later.
+Modal should animate in with GSAP (scale+fade), and the form fields should have refined, on-brand styling (not default browser inputs).
+Technical notes
+React + Vite + Tailwind CSS, GSAP (with ScrollTrigger plugin) and Lenis via npm.
+Fully responsive: the layout should adapt gracefully to mobile, with animations simplified/lightened on smaller screens for performance.
+Optimize images (lazy-load below-the-fold sections).
+Keep the whole build as one polished, cohesive page — no placeholder Lorem Ipsum, use real salon copy and real business details as given above.
+
+Goal: this needs to look and feel like a premium brand site strong enough to win a client pitch — award-site quality motion, editorial styling, cream/charcoal/gold palette, elegant serif+sans pairing, and a smooth, confident scroll experience from hero to footer.

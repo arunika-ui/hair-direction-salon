@@ -1,0 +1,1 @@
+- [Face-free visual direction](image-selection.md) — verify salon imagery visually and keep recognizable faces out of hero/gallery assets.
