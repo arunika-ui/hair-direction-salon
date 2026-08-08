@@ -1,0 +1,8 @@
+{
+  "//": "Config for the Vercel serverless function(s). @vercel/node resolves this by walking up from the entrypoint, so it is used INSTEAD of the frontend tsconfig. It extends the shared base (no `noEmit`, no `allowImportingTsExtensions`) so @vercel/node can emit the function; those Vite-only options in ../tsconfig.json would make emit illegal once @vercel/node forces noEmit:false.",
+  "extends": "../../../tsconfig.base.json",
+  "compilerOptions": {
+    "types": ["node"]
+  },
+  "include": ["**/*.ts"]
+}
