@@ -1,6 +1,7 @@
 import {
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   type ReactNode,
@@ -18,6 +19,8 @@ import {
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import Lenis from "lenis";
+import { useServiceGroups } from "./hooks/use-services";
+import { normalizeRawGroups, type ServiceGroup } from "./lib/services";
 import "./index.css";
 import img1 from "./assets/img1.jpeg";
 import img2 from "./assets/img2.jpeg";
@@ -62,7 +65,7 @@ const images = {
 
 const groups: Group[] = [
   {
-    name: "Hair Cutting",
+    name: "Cutting",
     items: [
       {
         name: "Signature Haircut",
@@ -262,9 +265,11 @@ function SmoothScroll({ children }: { children: ReactNode }) {
 
 function BookingModal({
   service,
+  serviceGroups,
   onClose,
 }: {
   service: string;
+  serviceGroups: ServiceGroup[];
   onClose: () => void;
 }) {
   const [submitted, setSubmitted] = useState(false);
@@ -375,7 +380,7 @@ function BookingModal({
                     ...new Set([
                       "Signature Haircut",
                       ...featured.map((item) => item.title),
-                      ...groups.flatMap((group) =>
+                      ...serviceGroups.flatMap((group) =>
                         group.items.map((item) => item.name),
                       ),
                     ]),
@@ -512,6 +517,17 @@ function App() {
   const [reviewIndex, setReviewIndex] = useState(0);
   const siteRef = useRef<HTMLDivElement>(null);
 
+  // Full-menu services come from Sanity. On error or empty result we fall back
+  // to the hardcoded `groups` so a visitor never sees a broken/empty section.
+  const { data, isLoading, isError } = useServiceGroups();
+  const serviceGroups = useMemo(
+    () =>
+      !isError && data && data.length > 0
+        ? data
+        : normalizeRawGroups(groups),
+    [data, isError],
+  );
+
   useLayoutEffect(() => {
     if (reducedMotion()) return;
     const context = gsap.context(() => {
@@ -600,19 +616,6 @@ function App() {
         },
       });
 
-      gsap.from(".service-group", {
-        autoAlpha: 0,
-        y: 30,
-        duration: 0.7,
-        stagger: 0.1,
-        ease: "power3.out",
-        scrollTrigger: {
-          trigger: ".service-menu",
-          start: "top 82%",
-          once: true,
-        },
-      });
-
       gsap.from(".gallery-cell", {
         autoAlpha: 0,
         y: 30,
@@ -674,7 +677,36 @@ function App() {
         overwrite: true,
       });
     });
-  }, [activeGroup]);
+  }, [activeGroup, serviceGroups]);
+
+  // The accordion sits behind a loading state at mount, so its entrance reveal
+  // can't run in the mount-time timeline. Run it once the rows actually exist
+  // (Sanity data or fallback), and refresh ScrollTrigger since the section grew
+  // taller and other triggers' positions need recalculating.
+  const groupsRevealed = useRef(false);
+  useLayoutEffect(() => {
+    if (reducedMotion() || isLoading || groupsRevealed.current) return;
+    const groupEls =
+      siteRef.current?.querySelectorAll(".service-group") ?? [];
+    if (groupEls.length === 0) return;
+    groupsRevealed.current = true;
+    const context = gsap.context(() => {
+      gsap.from(".service-group", {
+        autoAlpha: 0,
+        y: 30,
+        duration: 0.7,
+        stagger: 0.1,
+        ease: "power3.out",
+        scrollTrigger: {
+          trigger: ".service-menu",
+          start: "top 82%",
+          once: true,
+        },
+      });
+      ScrollTrigger.refresh();
+    }, siteRef);
+    return () => context.revert();
+  }, [isLoading, serviceGroups]);
 
   return (
     <SmoothScroll>
@@ -811,42 +843,69 @@ function App() {
                 </p>
               </div>
               <div className="service-menu">
-                {groups.map((group, index) => (
-                  <div
-                    className={`service-group ${activeGroup === index ? "open" : ""}`}
-                    key={group.name}
-                  >
-                    <button
-                      className="service-group-head"
-                      onClick={() =>
-                        setActiveGroup(activeGroup === index ? -1 : index)
-                      }
+                {isLoading ? (
+                  <div className="service-loading">Loading services…</div>
+                ) : (
+                  serviceGroups.map((group, index) => (
+                    <div
+                      className={`service-group ${activeGroup === index ? "open" : ""}`}
+                      key={group.name}
                     >
-                      <h3>{group.name}</h3>
-                      <span>+</span>
-                    </button>
-                    <div className="service-items">
-                      <div className="service-items-inner">
-                        {group.items.map((item) => (
-                          <div className="service-item" key={item.name}>
-                            <div className="service-name">{item.name}</div>
-                            <div className="service-meta">{item.duration}</div>
-                            <div className="service-price">{item.price}</div>
-                            <div className="service-desc">
-                              {item.description}
+                      <button
+                        className="service-group-head"
+                        onClick={() =>
+                          setActiveGroup(activeGroup === index ? -1 : index)
+                        }
+                      >
+                        <h3>{group.name}</h3>
+                        <span>+</span>
+                      </button>
+                      <div className="service-items">
+                        <div className="service-items-inner">
+                          {group.items.map((item) => (
+                            <div className="service-item" key={item.name}>
+                              <div className="service-name">{item.name}</div>
+                              <div className="service-meta">
+                                {item.variants.length === 1
+                                  ? item.variants[0].duration
+                                  : ""}
+                              </div>
+                              <div className="service-price">
+                                {item.priceLabel}
+                              </div>
+                              <div className="service-desc">
+                                {item.description}
+                              </div>
+                              {item.variants.length > 1 && (
+                                <ul className="service-variants">
+                                  {item.variants.map((variant, vi) => (
+                                    <li key={variant.label ?? vi}>
+                                      <span className="variant-label">
+                                        {variant.label ?? "Standard"}
+                                      </span>
+                                      <span className="variant-duration">
+                                        {variant.duration}
+                                      </span>
+                                      <span className="variant-price">
+                                        {variant.priceLabel}
+                                      </span>
+                                    </li>
+                                  ))}
+                                </ul>
+                              )}
+                              <button
+                                className="mini-book"
+                                onClick={() => setBooking(item.name)}
+                              >
+                                Book
+                              </button>
                             </div>
-                            <button
-                              className="mini-book"
-                              onClick={() => setBooking(item.name)}
-                            >
-                              Book
-                            </button>
-                          </div>
-                        ))}
+                          ))}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
             </div>
           </section>
@@ -1067,7 +1126,11 @@ function App() {
           </div>
         </footer>
         {booking !== null && (
-          <BookingModal service={booking} onClose={() => setBooking(null)} />
+          <BookingModal
+            service={booking}
+            serviceGroups={serviceGroups}
+            onClose={() => setBooking(null)}
+          />
         )}
       </div>
     </SmoothScroll>
