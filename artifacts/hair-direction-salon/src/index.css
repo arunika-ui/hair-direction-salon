@@ -51,6 +51,11 @@ footer{background:var(--ink);padding:70px 6vw 28px}.footer-top{display:grid;grid
 .gallery-expand{height:0;overflow:hidden}
 .gallery-grid-more{margin-top:13px}
 
+/* Booking form: honest error state + in-flight submit button */
+.form-error{margin:2px 0 0;color:#a3402f;font-size:11px;line-height:1.6}
+.form-error a{color:inherit;text-decoration:underline}
+.button:disabled{opacity:.6;cursor:default;transform:none}
+
 @media(prefers-reduced-motion:reduce){
   .hero-media img{opacity:1;filter:none}
   .service-items{height:auto!important;opacity:1!important}

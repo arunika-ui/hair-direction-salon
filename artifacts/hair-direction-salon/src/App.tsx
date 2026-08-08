@@ -290,6 +290,8 @@ function BookingModal({
   onClose: () => void;
 }) {
   const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState(false);
   const [closing, setClosing] = useState(false);
   const modalRef = useRef<HTMLDivElement>(null);
   const backdropRef = useRef<HTMLDivElement>(null);
@@ -372,25 +374,55 @@ function BookingModal({
             </p>
             <form
               className="booking-form"
-              onSubmit={(event) => {
+              onSubmit={async (event) => {
                 event.preventDefault();
-                setSubmitted(true);
+                if (submitting) return;
+                const data = new FormData(event.currentTarget);
+                setError(false);
+                setSubmitting(true);
+                try {
+                  const response = await fetch("/api/book-appointment", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      name: data.get("name"),
+                      phone: data.get("phone"),
+                      service: data.get("service"),
+                      date: data.get("date"),
+                      time: data.get("time"),
+                      notes: data.get("notes"),
+                    }),
+                  });
+                  if (!response.ok) throw new Error("Booking request failed");
+                  setSubmitted(true);
+                } catch {
+                  setError(true);
+                } finally {
+                  setSubmitting(false);
+                }
               }}
             >
               <div className="form-row">
                 <div className="form-field">
                   <label htmlFor="name">Name</label>
-                  <input id="name" required placeholder="Your name" />
+                  <input id="name" name="name" required placeholder="Your name" />
                 </div>
                 <div className="form-field">
                   <label htmlFor="phone">Phone</label>
-                  <input id="phone" required type="tel" placeholder="+91" />
+                  <input
+                    id="phone"
+                    name="phone"
+                    required
+                    type="tel"
+                    placeholder="+91"
+                  />
                 </div>
               </div>
               <div className="form-field">
                 <label htmlFor="service">Service</label>
                 <select
                   id="service"
+                  name="service"
                   defaultValue={service || "Signature Haircut"}
                 >
                   {[
@@ -409,19 +441,36 @@ function BookingModal({
               <div className="form-row">
                 <div className="form-field">
                   <label htmlFor="date">Preferred date</label>
-                  <input id="date" required type="date" />
+                  <input id="date" name="date" required type="date" />
                 </div>
                 <div className="form-field">
                   <label htmlFor="time">Preferred time</label>
-                  <input id="time" required type="time" />
+                  <input id="time" name="time" required type="time" />
                 </div>
               </div>
               <div className="form-field">
                 <label htmlFor="notes">Notes</label>
-                <textarea id="notes" placeholder="Anything we should know?" />
+                <textarea
+                  id="notes"
+                  name="notes"
+                  placeholder="Anything we should know?"
+                />
               </div>
-              <button className="button" type="submit">
-                Request appointment <ArrowUpRight size={14} />
+              {error && (
+                <p className="form-error" role="alert">
+                  Something went wrong while sending your request. Please call
+                  the studio directly at{" "}
+                  <a href="tel:07503135104">075031 35104</a> to book.
+                </p>
+              )}
+              <button className="button" type="submit" disabled={submitting}>
+                {submitting ? (
+                  "Sending…"
+                ) : (
+                  <>
+                    Request appointment <ArrowUpRight size={14} />
+                  </>
+                )}
               </button>
             </form>
           </>
