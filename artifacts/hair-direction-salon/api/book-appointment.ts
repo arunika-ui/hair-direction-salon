@@ -63,13 +63,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   )}T${pad(end.getUTCHours())}:${pad(end.getUTCMinutes())}:00`;
 
   try {
-    const auth = new google.auth.JWT({
-      email,
-      key,
+    // GoogleAuth with service-account credentials is accepted by every
+    // googleapis version's auth union (unlike a bare JWT, which some versions'
+    // GlobalOptions reject). Pass auth per-request so this doesn't depend on the
+    // calendar() options overload accepting an `auth` field either.
+    const auth = new google.auth.GoogleAuth({
+      credentials: { client_email: email, private_key: key },
       scopes: ['https://www.googleapis.com/auth/calendar.events'],
     });
-    const calendar = google.calendar({ version: 'v3', auth });
+    const calendar = google.calendar('v3');
     const event = await calendar.events.insert({
+      auth,
       calendarId,
       requestBody: {
         summary: `${name} — ${service}`,

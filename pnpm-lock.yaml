@@ -229,7 +229,7 @@ importers:
         specifier: ^6.9.1
         version: 6.9.1(@emotion/is-prop-valid@1.4.0)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(sanity@6.9.1(@babel/core@7.29.7(supports-color@8.1.1))(@babel/runtime@7.29.7)(@emotion/is-prop-valid@1.4.0)(@noble/hashes@2.3.0)(@rolldown/plugin-babel@0.2.3(@babel/core@7.29.7(supports-color@8.1.1))(@babel/runtime@7.29.7)(rolldown@1.2.3)(vite@7.3.6(@types/node@25.9.5)(jiti@2.7.0)(lightningcss@1.33.0)(tsx@4.23.9)(yaml@2.9.0)))(@types/node@25.9.5)(@types/react-dom@19.2.4(@types/react@19.2.18))(@types/react@19.2.18)(esbuild@0.27.3)(jiti@2.7.0)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(rolldown@1.2.3)(styled-components@6.5.0(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(supports-color@8.1.1)(typescript@5.9.3))(styled-components@6.5.0(react-dom@19.1.0(react@19.1.0))(react@19.1.0))
       googleapis:
-        specifier: ^144.0.0
+        specifier: 144.0.0
         version: 144.0.0(supports-color@8.1.1)
       gsap:
         specifier: ^3.15.0
