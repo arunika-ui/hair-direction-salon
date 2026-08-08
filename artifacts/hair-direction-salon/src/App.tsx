@@ -21,6 +21,8 @@ import { ScrollTrigger } from "gsap/ScrollTrigger";
 import Lenis from "lenis";
 import { useServiceGroups } from "./hooks/use-services";
 import { normalizeRawGroups, type ServiceGroup } from "./lib/services";
+import { useGalleryImages } from "./hooks/use-gallery";
+import type { GalleryImage } from "./lib/gallery";
 import "./index.css";
 import img1 from "./assets/img1.jpeg";
 import img2 from "./assets/img2.jpeg";
@@ -238,6 +240,21 @@ const reviews = [
     name: "Rhea K.",
     source: "Justdial review",
   },
+];
+
+// Fallback gallery, shaped exactly like the Sanity result. Shown when the
+// galleryImage query errors or returns empty, so the section never breaks.
+// First 4 -> primary grid, next 4 -> expandable grid (both fixed at 4 so the
+// .gallery-grid layout rules apply directly).
+const fallbackGallery: GalleryImage[] = [
+  { image: images.detail, caption: "Texture / light", alt: "Close detail of textured hair" },
+  { image: images.interior, caption: "The studio", alt: "Warm salon interior detail" },
+  { image: images.tools, caption: "The craft", alt: "Salon tools arranged on a work surface" },
+  { image: images.product, caption: "The ritual", alt: "Haircare product flatlay" },
+  { image: images.mirror, caption: "The mirror", alt: "" },
+  { image: images.colour, caption: "Colour work", alt: "" },
+  { image: images.cut, caption: "The cut", alt: "" },
+  { image: images.keratin, caption: "Smoothing", alt: "" },
 ];
 
 function scrollTo(id: string) {
@@ -515,7 +532,9 @@ function App() {
   const [booking, setBooking] = useState<string | null>(null);
   const [activeGroup, setActiveGroup] = useState(0);
   const [reviewIndex, setReviewIndex] = useState(0);
+  const [galleryOpen, setGalleryOpen] = useState(false);
   const siteRef = useRef<HTMLDivElement>(null);
+  const galleryExpandRef = useRef<HTMLDivElement>(null);
 
   // Full-menu services come from Sanity. On error or empty result we fall back
   // to the hardcoded `groups` so a visitor never sees a broken/empty section.
@@ -527,6 +546,18 @@ function App() {
         : normalizeRawGroups(groups),
     [data, isError],
   );
+
+  // Gallery images come from Sanity too. Same pattern: fall back to the curated
+  // hardcoded set on error/empty. The fallback is real content, so we render it
+  // immediately (no spinner) and upgrade in place when Sanity data arrives.
+  const { data: galleryData } = useGalleryImages();
+  const galleryImages = useMemo<GalleryImage[]>(
+    () =>
+      galleryData && galleryData.length > 0 ? galleryData : fallbackGallery,
+    [galleryData],
+  );
+  const primaryGallery = galleryImages.slice(0, 4);
+  const moreGallery = galleryImages.slice(4, 8);
 
   useLayoutEffect(() => {
     if (reducedMotion()) return;
@@ -616,7 +647,7 @@ function App() {
         },
       });
 
-      gsap.from(".gallery-cell", {
+      gsap.from(".gallery-grid-primary .gallery-cell", {
         autoAlpha: 0,
         y: 30,
         scale: 0.98,
@@ -624,7 +655,7 @@ function App() {
         stagger: 0.1,
         ease: "power3.out",
         scrollTrigger: {
-          trigger: ".gallery-grid",
+          trigger: ".gallery-grid-primary",
           start: "top 82%",
           once: true,
         },
@@ -707,6 +738,54 @@ function App() {
     }, siteRef);
     return () => context.revert();
   }, [isLoading, serviceGroups]);
+
+  // Expandable gallery. Reuses the services-accordion height technique for the
+  // container and the gallery-cell reveal values (y:30 / scale:.98 / power3.out)
+  // for the images, so it reads as a continuation of the site's motion language.
+  useLayoutEffect(() => {
+    const container = galleryExpandRef.current;
+    if (!container) return;
+    const cells = container.querySelectorAll<HTMLElement>(".gallery-cell");
+    if (reducedMotion()) {
+      gsap.set(container, { height: galleryOpen ? "auto" : 0 });
+      gsap.set(cells, { autoAlpha: galleryOpen ? 1 : 0 });
+      return;
+    }
+    gsap.killTweensOf(container);
+    gsap.killTweensOf(cells);
+    if (galleryOpen) {
+      gsap.set(cells, { autoAlpha: 0, y: 30, scale: 0.98 });
+      gsap.to(container, {
+        height: container.scrollHeight,
+        duration: 0.45,
+        ease: "power2.inOut",
+        onComplete: () => ScrollTrigger.refresh(),
+      });
+      gsap.to(cells, {
+        autoAlpha: 1,
+        y: 0,
+        scale: 1,
+        duration: 0.8,
+        stagger: 0.1,
+        ease: "power3.out",
+        delay: 0.1,
+      });
+    } else {
+      gsap.to(cells, {
+        autoAlpha: 0,
+        y: 20,
+        duration: 0.3,
+        ease: "power2.in",
+      });
+      gsap.to(container, {
+        height: 0,
+        duration: 0.45,
+        ease: "power2.inOut",
+        delay: 0.05,
+        onComplete: () => ScrollTrigger.refresh(),
+      });
+    }
+  }, [galleryOpen]);
 
   return (
     <SmoothScroll>
@@ -927,44 +1006,56 @@ function App() {
                   the whole thing.
                 </p>
               </div>
-              <div className="gallery-grid">
-                <div className="gallery-cell">
-                  <img
-                    src={images.detail}
-                    onLoad={markLoaded}
-                    loading="lazy"
-                    alt="Close detail of textured hair"
-                  />
-                  <span className="gallery-caption">Texture / light</span>
-                </div>
-                <div className="gallery-cell">
-                  <img
-                    src={images.interior}
-                    onLoad={markLoaded}
-                    loading="lazy"
-                    alt="Warm salon interior detail"
-                  />
-                  <span className="gallery-caption">The studio</span>
-                </div>
-                <div className="gallery-cell">
-                  <img
-                    src={images.tools}
-                    onLoad={markLoaded}
-                    loading="lazy"
-                    alt="Salon tools arranged on a work surface"
-                  />
-                  <span className="gallery-caption">The craft</span>
-                </div>
-                <div className="gallery-cell">
-                  <img
-                    src={images.product}
-                    onLoad={markLoaded}
-                    loading="lazy"
-                    alt="Haircare product flatlay"
-                  />
-                  <span className="gallery-caption">The ritual</span>
-                </div>
+              <div className="gallery-grid gallery-grid-primary">
+                {primaryGallery.map((cell, index) => (
+                  <div className="gallery-cell" key={index}>
+                    <img
+                      src={cell.image}
+                      onLoad={markLoaded}
+                      loading="lazy"
+                      alt={cell.alt}
+                    />
+                    <span className="gallery-caption">{cell.caption}</span>
+                  </div>
+                ))}
               </div>
+              {moreGallery.length > 0 && (
+                <>
+                  <div className="gallery-more-cta">
+                    <button
+                      className={`button text gallery-toggle ${galleryOpen ? "open" : ""}`}
+                      onClick={() => setGalleryOpen(!galleryOpen)}
+                      aria-expanded={galleryOpen}
+                      aria-controls="gallery-expand"
+                    >
+                      {galleryOpen ? "Hide gallery" : "See gallery"}
+                      <ArrowUpRight size={13} />
+                    </button>
+                  </div>
+                  <div
+                    className="gallery-expand"
+                    id="gallery-expand"
+                    ref={galleryExpandRef}
+                    aria-hidden={!galleryOpen}
+                  >
+                    <div className="gallery-grid gallery-grid-more">
+                      {moreGallery.map((cell, index) => (
+                        <div className="gallery-cell" key={index}>
+                          <img
+                            src={cell.image}
+                            onLoad={markLoaded}
+                            loading="lazy"
+                            alt={cell.alt}
+                          />
+                          <span className="gallery-caption">
+                            {cell.caption}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           </section>
 

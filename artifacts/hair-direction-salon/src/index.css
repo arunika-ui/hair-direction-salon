@@ -41,6 +41,16 @@ footer{background:var(--ink);padding:70px 6vw 28px}.footer-top{display:grid;grid
 .variant-price{color:#80673d;font-weight:700;white-space:nowrap;text-align:right;min-width:64px}
 .service-loading{padding:28px 2px;color:#6e6d63;font-size:11px;letter-spacing:.14em;text-transform:uppercase}
 
+/* Expandable gallery: reuse .button.text treatment, but ink-colored + darker
+   gold hover for legibility on the light gallery background */
+.gallery-more-cta{margin-top:36px;display:flex;justify-content:center}
+.gallery-section .button.text{color:var(--ink)}
+.gallery-section .button.text:hover{color:#80673d}
+.gallery-toggle svg{transition:transform .35s ease}
+.gallery-toggle.open svg{transform:rotate(90deg)}
+.gallery-expand{height:0;overflow:hidden}
+.gallery-grid-more{margin-top:13px}
+
 @media(prefers-reduced-motion:reduce){
   .hero-media img{opacity:1;filter:none}
   .service-items{height:auto!important;opacity:1!important}
