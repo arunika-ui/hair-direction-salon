@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { google } from 'googleapis';
 import { Resend } from 'resend';
-import { sanityWriteClient } from '../src/sanity/writeClient';
+import { sanityWriteClient } from '../src/sanity/writeClient.js';
 
 type BookingBody = {
   name?: string;

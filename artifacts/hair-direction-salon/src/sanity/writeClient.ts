@@ -1,5 +1,5 @@
 import { createClient } from '@sanity/client';
-import { projectId, dataset, apiVersion } from './config';
+import { projectId, dataset, apiVersion } from './config.js';
 
 // SERVER-ONLY. This client holds a write token and must never be imported into
 // browser/frontend code — only serverless functions (e.g. api/*). The read-only

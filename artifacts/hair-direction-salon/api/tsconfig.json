@@ -1,8 +1,10 @@
 {
-  "//": "Config for the Vercel serverless function(s). @vercel/node resolves this by walking up from the entrypoint, so it is used INSTEAD of the frontend tsconfig. It extends the shared base (no `noEmit`, no `allowImportingTsExtensions`) so @vercel/node can emit the function; those Vite-only options in ../tsconfig.json would make emit illegal once @vercel/node forces noEmit:false.",
+  "//": "Config for the Vercel serverless function(s). @vercel/node resolves this by walking up from the entrypoint, so it is used INSTEAD of the frontend tsconfig. It extends the shared base (no `noEmit`, no `allowImportingTsExtensions`) so @vercel/node can emit the function. module/moduleResolution are overridden to nodenext (not the base's bundler) to mirror how @vercel/node builds the ESM function, so this local typecheck catches missing-.js-extension errors (TS2835) instead of only surfacing them on Vercel.",
   "extends": "../../../tsconfig.base.json",
   "compilerOptions": {
-    "types": ["node"]
+    "types": ["node"],
+    "module": "nodenext",
+    "moduleResolution": "nodenext"
   },
   "include": ["**/*.ts"]
 }
