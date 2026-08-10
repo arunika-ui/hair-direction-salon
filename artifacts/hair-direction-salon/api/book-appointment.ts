@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { google } from 'googleapis';
 import { Resend } from 'resend';
+import { sanityWriteClient } from '../src/sanity/writeClient';
 
 type BookingBody = {
   name?: string;
@@ -108,6 +109,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     notes,
   });
 
+  // --- Phase 3: mirror the booking into Sanity so it shows in Studio. Same
+  // isolation as Phase 2: the helper never throws, so a Sanity write failure is
+  // logged but never blocks the success response.
+  await createBookingDocument({
+    name,
+    phone,
+    email,
+    service,
+    date,
+    time,
+    notes,
+  });
+
   return res.status(200).json({ ok: true, eventId });
 }
 
@@ -204,6 +218,48 @@ async function sendNotificationEmails(booking: BookingEmailData) {
   } catch (err) {
     console.error(
       'book-appointment: notification emails failed (booking still recorded)',
+      err,
+    );
+  }
+}
+
+type BookingDocumentData = {
+  name: string;
+  phone: string;
+  email: string;
+  service: string;
+  date: string;
+  time: string;
+  notes?: string;
+};
+
+// Mirrors the booking into Sanity as a `booking` document. Guaranteed never to
+// throw: a missing token or a failed write is logged but never propagated, so
+// it can't fail a booking.
+async function createBookingDocument(booking: BookingDocumentData) {
+  if (!process.env.SANITY_WRITE_TOKEN) {
+    console.error(
+      'book-appointment: SANITY_WRITE_TOKEN not set; skipping Studio sync',
+    );
+    return;
+  }
+
+  const { name, phone, email, service, date, time, notes } = booking;
+  try {
+    await sanityWriteClient.create({
+      _type: 'booking',
+      name,
+      phone,
+      email,
+      service,
+      date,
+      time,
+      ...(notes ? { notes } : {}),
+      status: 'Pending',
+    });
+  } catch (err) {
+    console.error(
+      'book-appointment: Sanity booking write failed (booking still recorded)',
       err,
     );
   }
