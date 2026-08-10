@@ -387,6 +387,7 @@ function BookingModal({
                     body: JSON.stringify({
                       name: data.get("name"),
                       phone: data.get("phone"),
+                      email: data.get("email"),
                       service: data.get("service"),
                       date: data.get("date"),
                       time: data.get("time"),
@@ -417,6 +418,16 @@ function BookingModal({
                     placeholder="+91"
                   />
                 </div>
+              </div>
+              <div className="form-field">
+                <label htmlFor="email">Email</label>
+                <input
+                  id="email"
+                  name="email"
+                  required
+                  type="email"
+                  placeholder="you@example.com"
+                />
               </div>
               <div className="form-field">
                 <label htmlFor="service">Service</label>
