@@ -23,6 +23,8 @@ import { useServiceGroups } from "./hooks/use-services";
 import { normalizeRawGroups, type ServiceGroup } from "./lib/services";
 import { useGalleryImages } from "./hooks/use-gallery";
 import type { GalleryImage } from "./lib/gallery";
+import { useProducts } from "./hooks/use-products";
+import type { Product } from "./lib/products";
 import "./index.css";
 import img1 from "./assets/img1.jpeg";
 import img2 from "./assets/img2.jpeg";
@@ -512,6 +514,7 @@ function Nav({ onBook }: { onBook: () => void }) {
   const links = [
     ["Home", "home"],
     ["Services", "services"],
+    ["Shop", "shop"],
     ["Gallery", "gallery"],
     ["About", "about"],
     ["Reviews", "reviews"],
@@ -595,6 +598,7 @@ function App() {
   const [galleryOpen, setGalleryOpen] = useState(false);
   const siteRef = useRef<HTMLDivElement>(null);
   const galleryExpandRef = useRef<HTMLDivElement>(null);
+  const shopTrackRef = useRef<HTMLDivElement>(null);
 
   // Full-menu services come from Sanity. On error or empty result we fall back
   // to the hardcoded `groups` so a visitor never sees a broken/empty section.
@@ -618,6 +622,12 @@ function App() {
   );
   const primaryGallery = galleryImages.slice(0, 4);
   const moreGallery = galleryImages.slice(4, 8);
+
+  // Shop products from Sanity (same read-client/hook pattern as services/gallery).
+  // No fallback content — until products are published in Studio, the section
+  // shows a loading state then a tasteful empty state.
+  const { data: productData, isLoading: productsLoading } = useProducts();
+  const products = useMemo<Product[]>(() => productData ?? [], [productData]);
 
   useLayoutEffect(() => {
     if (reducedMotion()) return;
@@ -847,6 +857,80 @@ function App() {
     }
   }, [galleryOpen]);
 
+  // Shop carousel: entrance reveal (matching the feature/gallery card motion)
+  // plus a slow auto-drift. The row is a native overflow-x scroll container, so
+  // manual scroll/drag/touch is free; a gsap ticker nudges scrollLeft and
+  // ping-pongs at the ends (reversing avoids the visible wrap-jump a native
+  // scroll loop would cause). Pauses on hover and during manual interaction
+  // (resumes after a short idle). reducedMotion disables the drift entirely,
+  // leaving only manual scroll.
+  useLayoutEffect(() => {
+    const track = shopTrackRef.current;
+    if (!track || products.length === 0) return;
+    const reduce = reducedMotion();
+
+    const context = gsap.context(() => {
+      if (reduce) return;
+      gsap.from(".product-card", {
+        autoAlpha: 0,
+        y: 30,
+        scale: 0.98,
+        duration: 0.8,
+        stagger: 0.1,
+        ease: "power3.out",
+        scrollTrigger: { trigger: ".shop-track", start: "top 85%", once: true },
+      });
+    }, siteRef);
+
+    if (reduce) return () => context.revert();
+
+    let direction = 1; // 1 = drift right, -1 = drift left
+    let hovering = false;
+    let interacting = false;
+    let idleTimer: number | undefined;
+    const SPEED = 0.4; // px per frame — a gentle drift
+
+    const tick = () => {
+      if (hovering || interacting) return;
+      const max = track.scrollWidth - track.clientWidth;
+      if (max <= 1) return;
+      track.scrollLeft += SPEED * direction;
+      if (track.scrollLeft >= max) direction = -1;
+      else if (track.scrollLeft <= 0) direction = 1;
+    };
+    const onEnter = () => {
+      hovering = true;
+    };
+    const onLeave = () => {
+      hovering = false;
+    };
+    const onInteract = () => {
+      interacting = true;
+      if (idleTimer) window.clearTimeout(idleTimer);
+      idleTimer = window.setTimeout(() => {
+        interacting = false;
+      }, 1500);
+    };
+
+    gsap.ticker.add(tick);
+    track.addEventListener("pointerenter", onEnter);
+    track.addEventListener("pointerleave", onLeave);
+    track.addEventListener("wheel", onInteract, { passive: true });
+    track.addEventListener("touchstart", onInteract, { passive: true });
+    track.addEventListener("pointerdown", onInteract);
+
+    return () => {
+      gsap.ticker.remove(tick);
+      if (idleTimer) window.clearTimeout(idleTimer);
+      track.removeEventListener("pointerenter", onEnter);
+      track.removeEventListener("pointerleave", onLeave);
+      track.removeEventListener("wheel", onInteract);
+      track.removeEventListener("touchstart", onInteract);
+      track.removeEventListener("pointerdown", onInteract);
+      context.revert();
+    };
+  }, [products]);
+
   return (
     <SmoothScroll>
       <div ref={siteRef} className="site-shell">
@@ -1049,11 +1133,59 @@ function App() {
             </div>
           </section>
 
+          <section className="section shop-section" id="shop">
+            <div className="section-inner">
+              <div className="section-heading">
+                <div>
+                  <span className="eyebrow">04 / The shop</span>
+                  <h2 className="serif">Take it home.</h2>
+                </div>
+                <p>
+                  Salon-grade products and tools, chosen to keep the result
+                  looking its best between visits.
+                </p>
+              </div>
+              {productsLoading ? (
+                <div className="shop-loading">Loading products…</div>
+              ) : products.length === 0 ? (
+                <div className="shop-empty">
+                  Our shop is being curated — products arriving soon.
+                </div>
+              ) : (
+                <div className="shop-track" ref={shopTrackRef}>
+                  {products.map((item) => (
+                    <article className="product-card" key={item.slug ?? item.name}>
+                      <div className="product-media">
+                        {item.image && (
+                          <img
+                            src={item.image}
+                            onLoad={markLoaded}
+                            loading="lazy"
+                            alt={item.name}
+                          />
+                        )}
+                      </div>
+                      <div className="product-info">
+                        <h3 className="product-name">{item.name}</h3>
+                        <div className="product-bottom">
+                          <span className="product-price">{item.priceLabel}</span>
+                          <button className="mini-book add-to-cart" type="button">
+                            Add to cart
+                          </button>
+                        </div>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              )}
+            </div>
+          </section>
+
           <section className="section gallery-section" id="gallery">
             <div className="section-inner">
               <div className="gallery-intro">
                 <div>
-                  <span className="eyebrow">04 / In the studio</span>
+                  <span className="eyebrow">05 / In the studio</span>
                   <h2 className="serif">
                     Details
                     <br />
@@ -1122,7 +1254,7 @@ function App() {
           <section className="section review-section" id="reviews">
             <div className="section-inner review-layout">
               <div className="rating-panel">
-                <span className="eyebrow">05 / In their words</span>
+                <span className="eyebrow">06 / In their words</span>
                 <h2 className="serif">
                   4.7<span style={{ fontSize: ".38em" }}>★</span>
                 </h2>
@@ -1171,7 +1303,7 @@ function App() {
           <section className="section contact-section" id="contact">
             <div className="section-inner contact-grid">
               <div>
-                <span className="eyebrow">06 / Come by</span>
+                <span className="eyebrow">07 / Come by</span>
                 <h2 className="contact-title serif">
                   See you
                   <br />
@@ -1241,6 +1373,7 @@ function App() {
                 {[
                   ["Home", "home"],
                   ["Services", "services"],
+                  ["Shop", "shop"],
                   ["Gallery", "gallery"],
                   ["About", "about"],
                   ["Reviews", "reviews"],
