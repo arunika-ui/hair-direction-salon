@@ -67,6 +67,45 @@ type CartLine = {
   qty: number;
 };
 
+type RazorpayResponse = {
+  razorpay_payment_id: string;
+  razorpay_order_id: string;
+  razorpay_signature: string;
+};
+type RazorpayOptions = {
+  key: string;
+  amount: number;
+  currency: string;
+  name: string;
+  order_id: string;
+  handler: (response: RazorpayResponse) => void;
+  modal?: { ondismiss?: () => void };
+  theme?: { color?: string };
+};
+type RazorpayInstance = {
+  open: () => void;
+  on: (event: string, handler: (response: unknown) => void) => void;
+};
+type RazorpayConstructor = new (options: RazorpayOptions) => RazorpayInstance;
+
+// Razorpay Checkout.js is loaded on demand from their host (their hosted widget,
+// per the docs) — it's not bundled. Resolves the global constructor, or null.
+function loadRazorpayCheckout(): Promise<RazorpayConstructor | null> {
+  const read = () =>
+    (window as unknown as { Razorpay?: RazorpayConstructor }).Razorpay ?? null;
+  return new Promise((resolve) => {
+    if (read()) {
+      resolve(read());
+      return;
+    }
+    const script = document.createElement("script");
+    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    script.onload = () => resolve(read());
+    script.onerror = () => resolve(null);
+    document.body.appendChild(script);
+  });
+}
+
 const images = {
   hero: img5,
   colour: img7,
@@ -630,14 +669,92 @@ function CartDrawer({
   onInc,
   onDec,
   onRemove,
+  onClearCart,
 }: {
   lines: CartLine[];
   onClose: () => void;
   onInc: (id: string) => void;
   onDec: (id: string) => void;
   onRemove: (id: string) => void;
+  onClearCart: () => void;
 }) {
+  const [status, setStatus] = useState<
+    "idle" | "processing" | "confirmed" | "error"
+  >("idle");
+  const [errorMsg, setErrorMsg] = useState("");
   const total = lines.reduce((sum, line) => sum + line.price * line.qty, 0);
+
+  const handleCheckout = async () => {
+    if (status === "processing" || lines.length === 0) return;
+    setErrorMsg("");
+    setStatus("processing");
+    try {
+      // 1) Create the order server-side (server computes the real total).
+      const orderRes = await fetch("/api/create-order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          items: lines.map((line) => ({ id: line.id, qty: line.qty })),
+        }),
+      });
+      const orderData = await orderRes.json();
+      if (!orderRes.ok || !orderData.ok) {
+        throw new Error(orderData.error || "Could not start checkout");
+      }
+
+      // 2) Open Razorpay Checkout with the returned order.
+      const RazorpayCtor = await loadRazorpayCheckout();
+      if (!RazorpayCtor) throw new Error("Could not load the payment window");
+
+      const rzp = new RazorpayCtor({
+        key: orderData.keyId,
+        order_id: orderData.orderId,
+        amount: orderData.amount,
+        currency: orderData.currency,
+        name: "The Hair Direction Salon",
+        theme: { color: "#c9a875" },
+        modal: { ondismiss: () => setStatus("idle") },
+        // 3) On payment, verify the signature server-side before confirming.
+        handler: async (response) => {
+          try {
+            const verifyRes = await fetch("/api/verify-payment", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(response),
+            });
+            const verifyData = await verifyRes.json();
+            if (verifyRes.ok && verifyData.ok) {
+              onClearCart();
+              setStatus("confirmed");
+            } else {
+              setErrorMsg(
+                "We couldn't verify your payment. If you were charged, please contact the studio.",
+              );
+              setStatus("error");
+            }
+          } catch {
+            setErrorMsg(
+              "We couldn't verify your payment. If you were charged, please contact the studio.",
+            );
+            setStatus("error");
+          }
+        },
+      });
+      rzp.on("payment.failed", () => {
+        setErrorMsg("Your payment could not be completed. Please try again.");
+        setStatus("error");
+      });
+      rzp.open();
+    } catch (err) {
+      setErrorMsg(
+        err instanceof Error
+          ? err.message
+          : "Something went wrong. Please try again.",
+      );
+      setStatus("error");
+    }
+  };
+
   useEffect(() => {
     const handler = (event: KeyboardEvent) =>
       event.key === "Escape" && onClose();
@@ -668,7 +785,21 @@ function CartDrawer({
             <X size={17} />
           </button>
         </div>
-        {lines.length === 0 ? (
+        {status === "confirmed" ? (
+          <div className="confirmation">
+            <div className="confirm-mark">
+              <span>✓</span>
+            </div>
+            <h2 className="serif">Order confirmed</h2>
+            <p>
+              Thank you — your payment was received. We'll be in touch about your
+              order shortly.
+            </p>
+            <button className="button" onClick={onClose}>
+              Close
+            </button>
+          </div>
+        ) : lines.length === 0 ? (
           <div className="cart-empty">Your cart is empty.</div>
         ) : (
           <>
@@ -712,10 +843,15 @@ function CartDrawer({
                 <span className="cart-total-label">Total</span>
                 <span className="cart-total-value">{inr(total)}</span>
               </div>
-              <button className="button" type="button" disabled>
-                Checkout
+              {status === "error" && <p className="form-error">{errorMsg}</p>}
+              <button
+                className="button"
+                type="button"
+                onClick={handleCheckout}
+                disabled={status === "processing"}
+              >
+                {status === "processing" ? "Processing…" : "Checkout"}
               </button>
-              <p className="cart-note">Checkout coming soon</p>
             </div>
           </>
         )}
@@ -1609,6 +1745,7 @@ function App() {
             onInc={incLine}
             onDec={decLine}
             onRemove={removeLine}
+            onClearCart={() => setCart([])}
           />
         )}
       </div>

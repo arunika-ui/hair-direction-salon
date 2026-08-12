@@ -1,5 +1,5 @@
 import { createClient } from '@sanity/client';
-import { projectId, dataset, apiVersion } from './config';
+import { projectId, dataset, apiVersion } from './config.js';
 
 // Read-only, browser-safe client. useCdn serves cached, published content
 // (fast, and all we need for a public marketing site).
