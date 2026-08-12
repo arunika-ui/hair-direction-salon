@@ -5,6 +5,16 @@ import { sanityClient } from '../src/sanity/client.js';
 // server-side from Sanity — a client-sent amount is never trusted.
 type CartItem = { id?: string; qty?: number };
 type PriceRow = { id: string; price: number | null };
+// The global `fetch` Response type varies between the local @types/node and
+// @vercel/node's builder (which resolves a different @types/node), so relying
+// on the ambient Response broke the Vercel build. Declare just the members we
+// use and cast to it — deterministic in both environments.
+type FetchResponse = {
+  ok: boolean;
+  status: number;
+  text: () => Promise<string>;
+  json: () => Promise<unknown>;
+};
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
@@ -60,7 +70,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
     const auth = Buffer.from(`${keyId}:${keySecret}`).toString('base64');
-    const response = await fetch('https://api.razorpay.com/v1/orders', {
+    const response = (await fetch('https://api.razorpay.com/v1/orders', {
       method: 'POST',
       headers: {
         Authorization: `Basic ${auth}`,
@@ -71,7 +81,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         currency: 'INR',
         receipt: `hd_${Date.now()}`,
       }),
-    });
+    })) as unknown as FetchResponse;
     if (!response.ok) {
       const detail = await response.text();
       console.error('create-order: Razorpay rejected order', response.status, detail);
