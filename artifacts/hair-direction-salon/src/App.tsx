@@ -15,6 +15,10 @@ import {
   Phone,
   MapPin,
   Clock,
+  ShoppingBag,
+  Plus,
+  Minus,
+  Trash2,
 } from "lucide-react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
@@ -53,6 +57,15 @@ const unsplash = (id: string, width: number) =>
   `https://images.unsplash.com/photo-${id}?auto=format&fit=crop&w=${width}&q=85`;
 const markLoaded = (event: React.SyntheticEvent<HTMLImageElement>) =>
   event.currentTarget.classList.add("is-loaded");
+const inr = (n: number) => `₹ ${n.toLocaleString("en-IN")}`;
+
+type CartLine = {
+  id: string;
+  name: string;
+  price: number;
+  image: string | null;
+  qty: number;
+};
 
 const images = {
   hero: img5,
@@ -506,7 +519,15 @@ function BookingModal({
   );
 }
 
-function Nav({ onBook }: { onBook: () => void }) {
+function Nav({
+  onBook,
+  cartCount,
+  onOpenCart,
+}: {
+  onBook: () => void;
+  cartCount: number;
+  onOpenCart: () => void;
+}) {
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState("home");
@@ -577,9 +598,21 @@ function Nav({ onBook }: { onBook: () => void }) {
           </a>
         ))}
       </div>
-      <button className="button nav-book" onClick={onBook}>
-        Book now <ArrowUpRight size={13} />
-      </button>
+      <div className="nav-actions">
+        <button
+          className="nav-cart"
+          onClick={onOpenCart}
+          aria-label={`Open cart${cartCount ? ` (${cartCount})` : ""}`}
+        >
+          <ShoppingBag size={16} />
+          {cartCount > 0 && (
+            <span className="nav-cart-count">{cartCount}</span>
+          )}
+        </button>
+        <button className="button nav-book" onClick={onBook}>
+          Book now <ArrowUpRight size={13} />
+        </button>
+      </div>
       <button
         className="menu-toggle"
         onClick={() => setOpen(!open)}
@@ -591,11 +624,155 @@ function Nav({ onBook }: { onBook: () => void }) {
   );
 }
 
+function CartDrawer({
+  lines,
+  onClose,
+  onInc,
+  onDec,
+  onRemove,
+}: {
+  lines: CartLine[];
+  onClose: () => void;
+  onInc: (id: string) => void;
+  onDec: (id: string) => void;
+  onRemove: (id: string) => void;
+}) {
+  const total = lines.reduce((sum, line) => sum + line.price * line.qty, 0);
+  useEffect(() => {
+    const handler = (event: KeyboardEvent) =>
+      event.key === "Escape" && onClose();
+    document.addEventListener("keydown", handler);
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", handler);
+      document.body.style.overflow = "";
+    };
+  }, [onClose]);
+  return (
+    <div
+      className="cart-backdrop"
+      role="presentation"
+      onMouseDown={(event) =>
+        event.target === event.currentTarget && onClose()
+      }
+    >
+      <aside
+        className="cart-drawer"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Shopping cart"
+      >
+        <div className="cart-head">
+          <span className="eyebrow">Your cart</span>
+          <button className="cart-close" onClick={onClose} aria-label="Close cart">
+            <X size={17} />
+          </button>
+        </div>
+        {lines.length === 0 ? (
+          <div className="cart-empty">Your cart is empty.</div>
+        ) : (
+          <>
+            <div className="cart-lines">
+              {lines.map((line) => (
+                <div className="cart-line" key={line.id}>
+                  <div className="cart-thumb">
+                    {line.image && <img src={line.image} alt={line.name} />}
+                  </div>
+                  <div>
+                    <div className="cart-line-name">{line.name}</div>
+                    <div className="cart-line-price">{inr(line.price)}</div>
+                    <div className="cart-qty">
+                      <button
+                        onClick={() => onDec(line.id)}
+                        aria-label="Decrease quantity"
+                      >
+                        <Minus size={13} />
+                      </button>
+                      <span>{line.qty}</span>
+                      <button
+                        onClick={() => onInc(line.id)}
+                        aria-label="Increase quantity"
+                      >
+                        <Plus size={13} />
+                      </button>
+                    </div>
+                  </div>
+                  <button
+                    className="cart-remove"
+                    onClick={() => onRemove(line.id)}
+                    aria-label={`Remove ${line.name}`}
+                  >
+                    <Trash2 size={15} />
+                  </button>
+                </div>
+              ))}
+            </div>
+            <div className="cart-foot">
+              <div className="cart-total">
+                <span className="cart-total-label">Total</span>
+                <span className="cart-total-value">{inr(total)}</span>
+              </div>
+              <button className="button" type="button" disabled>
+                Checkout
+              </button>
+              <p className="cart-note">Checkout coming soon</p>
+            </div>
+          </>
+        )}
+      </aside>
+    </div>
+  );
+}
+
 function App() {
   const [booking, setBooking] = useState<string | null>(null);
   const [activeGroup, setActiveGroup] = useState(0);
   const [reviewIndex, setReviewIndex] = useState(0);
   const [galleryOpen, setGalleryOpen] = useState(false);
+
+  // Cart state (Phase 2): held at App level for the session. No persistence or
+  // checkout yet — just add / change quantity / remove / running total.
+  const [cart, setCart] = useState<CartLine[]>([]);
+  const [cartOpen, setCartOpen] = useState(false);
+  const cartCount = cart.reduce((total, line) => total + line.qty, 0);
+  const addToCart = (product: Product) =>
+    setCart((lines) => {
+      const id = product.slug ?? product.name;
+      const existing = lines.find((line) => line.id === id);
+      if (existing) {
+        return lines.map((line) =>
+          line.id === id ? { ...line, qty: line.qty + 1 } : line,
+        );
+      }
+      return [
+        ...lines,
+        {
+          id,
+          name: product.name,
+          price: product.price ?? 0,
+          image: product.image,
+          qty: 1,
+        },
+      ];
+    });
+  const incLine = (id: string) =>
+    setCart((lines) =>
+      lines.map((line) =>
+        line.id === id ? { ...line, qty: line.qty + 1 } : line,
+      ),
+    );
+  const decLine = (id: string) =>
+    setCart((lines) =>
+      lines.flatMap((line) =>
+        line.id === id
+          ? line.qty <= 1
+            ? []
+            : [{ ...line, qty: line.qty - 1 }]
+          : [line],
+      ),
+    );
+  const removeLine = (id: string) =>
+    setCart((lines) => lines.filter((line) => line.id !== id));
   const siteRef = useRef<HTMLDivElement>(null);
   const galleryExpandRef = useRef<HTMLDivElement>(null);
   const shopTrackRef = useRef<HTMLDivElement>(null);
@@ -934,7 +1111,11 @@ function App() {
   return (
     <SmoothScroll>
       <div ref={siteRef} className="site-shell">
-        <Nav onBook={() => setBooking("")} />
+        <Nav
+          onBook={() => setBooking("")}
+          cartCount={cartCount}
+          onOpenCart={() => setCartOpen(true)}
+        />
         <main>
           <section className="hero" id="home">
             <div className="hero-media">
@@ -1155,21 +1336,26 @@ function App() {
                 <div className="shop-track" ref={shopTrackRef}>
                   {products.map((item) => (
                     <article className="product-card" key={item.slug ?? item.name}>
-                      <div className="product-media">
-                        {item.image && (
-                          <img
-                            src={item.image}
-                            onLoad={markLoaded}
-                            loading="lazy"
-                            alt={item.name}
-                          />
-                        )}
-                      </div>
+                      {item.image && (
+                        <img
+                          src={item.image}
+                          onLoad={markLoaded}
+                          loading="lazy"
+                          alt={item.name}
+                        />
+                      )}
+                      {item.category && (
+                        <span className="product-badge">{item.category}</span>
+                      )}
                       <div className="product-info">
-                        <h3 className="product-name">{item.name}</h3>
+                        <h3 className="serif">{item.name}</h3>
                         <div className="product-bottom">
-                          <span className="product-price">{item.priceLabel}</span>
-                          <button className="mini-book add-to-cart" type="button">
+                          <span className="price">{item.priceLabel}</span>
+                          <button
+                            className="mini-book"
+                            type="button"
+                            onClick={() => addToCart(item)}
+                          >
                             Add to cart
                           </button>
                         </div>
@@ -1414,6 +1600,15 @@ function App() {
             service={booking}
             serviceGroups={serviceGroups}
             onClose={() => setBooking(null)}
+          />
+        )}
+        {cartOpen && (
+          <CartDrawer
+            lines={cart}
+            onClose={() => setCartOpen(false)}
+            onInc={incLine}
+            onDec={decLine}
+            onRemove={removeLine}
           />
         )}
       </div>
